@@ -324,8 +324,30 @@ class RiskAnalysisModule:
                               name='基差错配与P/L'),
                     row=2, col=1
                 )
-                fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
-                fig.add_vline(x=0, line_dash="dash", line_color="green", row=2, col=1)
+                x_range = [data['Time_Lag'].min(), data['Time_Lag'].max()]
+                y_range = [data['Alloc_Total_PL'].min(), data['Alloc_Total_PL'].max()]
+
+                fig.add_shape(
+                    type="line",
+                    x0=x_range[0],
+                    x1=x_range[1],
+                    y0=0,
+                    y1=0,
+                    line=dict(dash="dash", color="gray"),
+                    row=2,
+                    col=1
+                )
+
+                fig.add_shape(
+                    type="line",
+                    x0=0,
+                    x1=0,
+                    y0=y_range[0],
+                    y1=y_range[1],
+                    line=dict(dash="dash", color="green"),
+                    row=2,
+                    col=1
+                )
             
             if self.basis_risk_results.get('risk_score'):
                 risk_score = self.basis_risk_results['risk_score']
@@ -424,8 +446,30 @@ class RiskAnalysisModule:
                           name='月差与P/L关系'),
                 row=2, col=1
             )
-            fig.add_hline(y=0, line_dash="dash", line_color="gray", row=2, col=1)
-            fig.add_vline(x=0, line_dash="dash", line_color="green", row=2, col=1)
+            x_range = [data['Tenor_Diff_Months'].min(), data['Tenor_Diff_Months'].max()]
+            y_range = [data['Alloc_Total_PL'].min(), data['Alloc_Total_PL'].max()]
+
+            fig.add_shape(
+                type="line",
+                x0=x_range[0],
+                x1=x_range[1],
+                y0=0,
+                y1=0,
+                line=dict(dash="dash", color="gray"),
+                row=2,
+                col=1
+            )
+
+            fig.add_shape(
+                type="line",
+                x0=0,
+                x1=0,
+                y0=y_range[0],
+                y1=y_range[1],
+                line=dict(dash="dash", color="green"),
+                row=2,
+                col=1
+            )
             
             summary = self.tenor_risk_results['summary']
             perfect_match_ratio = (len(data[data['Tenor_Diff_Months'] == 0]) / len(data)) * 100
