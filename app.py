@@ -646,8 +646,38 @@ class PLAttributionModule:
                 ),
                 row=2, col=1
             )
-            fig.add_hline(y=summary['total_pl'], line_dash="dash", line_color="blue", 
-                         annotation_text=f"总P/L: ${summary['total_pl']:,.2f}", row=2, col=1)
+
+            # add_hline 在包含饼图的子图组合下会尝试为 Pie trace 设置 xaxis 属性，导致报错
+            # 这里改为手动添加 shape，并指定对应子图的坐标系以避免冲突
+            xaxis_name = "x2"
+            yaxis_name = "y2"
+            x0 = -0.5
+            x1 = len(cargo_pl) - 0.5 if len(cargo_pl) > 0 else 0.5
+            total_pl_value = summary['total_pl']
+
+            fig.add_shape(
+                type="line",
+                x0=x0,
+                x1=x1,
+                y0=total_pl_value,
+                y1=total_pl_value,
+                line=dict(dash="dash", color="blue"),
+                xref=xaxis_name,
+                yref=yaxis_name,
+                row=2,
+                col=1
+            )
+            fig.add_annotation(
+                x=(x0 + x1) / 2,
+                y=total_pl_value,
+                xref=xaxis_name,
+                yref=yaxis_name,
+                text=f"总P/L: ${total_pl_value:,.2f}",
+                showarrow=False,
+                font=dict(color="blue"),
+                row=2,
+                col=1
+            )
             
             display_df = cargo_pl.copy()
             display_df = display_df.round(2)
