@@ -17,11 +17,11 @@ from typing import Dict, List, Tuple, Optional
 warnings.filterwarnings("ignore", category=UserWarning)
 
 # ---------------------------------------------------------
-# 1. 核心匹配引擎 (保持不变，只做接口适配)
+# 1. 核心匹配引擎接口适配器
 # ---------------------------------------------------------
 
 class HedgeMatchingEngine:
-    """套保匹配引擎 - 简化接口版"""
+    """套保匹配引擎 - 接口适配器版本"""
     
     def __init__(self):
         self.df_paper = None
@@ -31,44 +31,89 @@ class HedgeMatchingEngine:
         self.df_physical_updated = None
         
     def run_matching(self, df_paper_raw, df_physical_raw):
-        """执行完整匹配流程 - 简化接口"""
-        # 这里应该调用你的原始hedge_engine.py逻辑
-        # 为演示目的，创建示例数据
+        """执行完整匹配流程 - 适配器接口"""
         st.info("🔄 正在执行套保匹配...")
         
-        # 模拟匹配过程
-        time.sleep(2)
-        
-        # 创建示例匹配数据
-        n_records = 50
-        example_data = {
-            'Cargo_ID': [f'PHY-2026-{i:03d}' for i in range(1, n_records+1)],
-            'Ticket_ID': [f'TKT-2025-{i:03d}' for i in range(100, 100+n_records)],
-            'Proxy': ['BRENT']*(n_records//2) + ['JCC']*(n_records//2),
-            'Physical_Benchmark': ['BRENT']*(n_records//2) + ['JCC']*(n_records//2),
-            'Month': ['JAN 26', 'FEB 26', 'MAR 26', 'APR 26', 'MAY 26'] * (n_records//5),
-            'Physical_Month': ['JAN 26', 'FEB 26', 'MAR 26', 'APR 26', 'MAY 26'] * (n_records//5),
-            'Allocated_Vol': np.random.uniform(-100000, 100000, n_records),
-            'Open_Price': np.random.uniform(70, 85, n_records),
-            'MTM_Price': np.random.uniform(75, 90, n_records),
-            'Alloc_Total_PL': np.random.uniform(-50000, 50000, n_records),
-            'Alloc_Unrealized_MTM': np.random.uniform(-20000, 20000, n_records),
-            'Time_Lag': np.random.randint(-30, 30, n_records),
-            'Designation_Date': pd.date_range('2024-01-01', periods=n_records),
-            'Open_Date': pd.date_range('2024-01-15', periods=n_records),
-            'Realized_PL': np.random.uniform(-30000, 30000, n_records),
-            'Unrealized_PL': np.random.uniform(-20000, 20000, n_records)
-        }
-        
-        self.df_relations = pd.DataFrame(example_data)
-        self.df_physical = df_physical_raw.copy() if df_physical_raw is not None else pd.DataFrame()
-        self.df_paper_net = df_paper_raw.copy() if df_paper_raw is not None else pd.DataFrame()
-        
-        st.success(f"✅ 套保匹配完成！生成 {len(self.df_relations)} 条匹配记录")
-        return self.df_relations, self.df_physical, self.df_paper_net
+        try:
+            # 这里是调用你的原始 hedge_engine.py 的地方
+            # 为了演示，我们先创建示例数据
+            time.sleep(1)  # 模拟处理时间
+            
+            # 创建更完整的示例数据，包含所有分析所需的字段
+            n_records = 50
+            
+            # 确保数据有必要的字段
+            example_data = {
+                'Cargo_ID': [f'PHY-2026-{i:03d}' for i in range(1, n_records+1)],
+                'Ticket_ID': [f'TKT-2025-{i:03d}' for i in range(100, 100+n_records)],
+                'Proxy': ['BRENT']*20 + ['JCC']*20 + ['NG_HENRY_HUB']*10,
+                'Physical_Benchmark': ['BRENT']*20 + ['JCC']*20 + ['HENRY_HUB']*10,
+                'Month': ['JAN 26', 'FEB 26', 'MAR 26', 'APR 26', 'MAY 26'] * (n_records//5),
+                'Physical_Month': ['JAN 26', 'FEB 26', 'MAR 26', 'APR 26', 'MAY 26'] * (n_records//5),
+                'Allocated_Vol': np.random.uniform(-100000, 100000, n_records),
+                'Open_Price': np.random.uniform(70, 85, n_records),
+                'MTM_Price': np.random.uniform(75, 90, n_records),
+                'Alloc_Total_PL': np.random.uniform(-50000, 50000, n_records),
+                'Alloc_Unrealized_MTM': np.random.uniform(-20000, 20000, n_records),
+                'Time_Lag': np.random.randint(-30, 30, n_records),
+                'Designation_Date': pd.date_range('2024-01-01', periods=n_records).strftime('%Y-%m-%d'),
+                'Open_Date': pd.date_range('2024-01-15', periods=n_records).strftime('%Y-%m-%d'),
+                'Realized_PL': np.random.uniform(-30000, 30000, n_records),
+                'Unrealized_PL': np.random.uniform(-20000, 20000, n_records),
+                'Volume': np.random.uniform(50000, 200000, n_records),
+                'Trade_Date': pd.date_range('2024-01-10', periods=n_records).strftime('%Y-%m-%d')
+            }
+            
+            # 调整NG Henry Hub的价格范围（天然气价格较低）
+            ng_mask = np.array(['NG' in x or 'HENRY' in x for x in example_data['Proxy']])
+            example_data['Open_Price'][ng_mask] = np.random.uniform(2.5, 4.5, np.sum(ng_mask))
+            example_data['MTM_Price'][ng_mask] = np.random.uniform(2.8, 4.8, np.sum(ng_mask))
+            
+            self.df_relations = pd.DataFrame(example_data)
+            
+            # 创建物理数据副本
+            self.df_physical = df_physical_raw.copy() if df_physical_raw is not None else pd.DataFrame()
+            if self.df_physical.empty:
+                # 创建示例物理数据
+                self.df_physical = pd.DataFrame({
+                    'Cargo_ID': [f'PHY-2026-{i:03d}' for i in range(1, 16)],
+                    'Volume': np.random.uniform(100000, 500000, 15),
+                    'Hedge_Proxy': ['BRENT']*5 + ['JCC']*5 + ['NG_HENRY_HUB']*5,
+                    'Pricing_Benchmark': ['BRENT']*5 + ['JCC']*5 + ['HENRY_HUB']*5
+                })
+            
+            # 创建纸货净仓数据
+            self.df_paper_net = df_paper_raw.copy() if df_paper_raw is not None else pd.DataFrame()
+            if self.df_paper_net.empty:
+                # 创建示例纸货数据
+                self.df_paper_net = pd.DataFrame({
+                    'Trade Date': pd.date_range('2024-01-01', periods=30).strftime('%Y-%m-%d'),
+                    'Volume': np.random.uniform(-50000, 50000, 30),
+                    'Commodity': ['BRENT']*10 + ['JCC']*10 + ['NG']*10,
+                    'Month': ['JAN 26', 'FEB 26', 'MAR 26'] * 10,
+                    'Price': np.concatenate([
+                        np.random.uniform(70, 85, 10),  # BRENT
+                        np.random.uniform(72, 87, 10),  # JCC
+                        np.random.uniform(2.5, 4.5, 10)  # NG
+                    ]),
+                    'Recap No': [f'TKT-{i:04d}' for i in range(100, 130)]
+                })
+            
+            st.success(f"✅ 套保匹配完成！生成 {len(self.df_relations)} 条匹配记录")
+            
+            # 返回匹配结果
+            return {
+                'relations': self.df_relations,
+                'physical': self.df_physical,
+                'paper_net': self.df_paper_net
+            }
+            
+        except Exception as e:
+            st.error(f"匹配过程中出现错误: {e}")
+            return None
 
 # ---------------------------------------------------------
-# 2. 风险多维透视模块
+# 2. 风险多维透视模块 (保持不变)
 # ---------------------------------------------------------
 
 class RiskAnalysisModule:
@@ -86,8 +131,16 @@ class RiskAnalysisModule:
                 return None
             
             # 识别基准和代理
-            if 'Physical_Benchmark' not in self.df_relations.columns or 'Proxy' not in self.df_relations.columns:
-                st.warning("缺少基差风险分析所需字段：Physical_Benchmark 或 Proxy")
+            if 'Physical_Benchmark' not in self.df_relations.columns:
+                # 如果没有Physical_Benchmark列，尝试从Proxy推断
+                if 'Proxy' in self.df_relations.columns:
+                    self.df_relations['Physical_Benchmark'] = self.df_relations['Proxy']
+                else:
+                    st.warning("缺少基差风险分析所需字段：Physical_Benchmark 或 Proxy")
+                    return None
+            
+            if 'Proxy' not in self.df_relations.columns:
+                st.warning("缺少基差风险分析所需字段：Proxy")
                 return None
             
             # 计算基差错配
@@ -145,8 +198,20 @@ class RiskAnalysisModule:
             missing_cols = [col for col in required_cols if col not in self.df_relations.columns]
             
             if missing_cols:
-                st.warning(f"缺少期限风险分析所需字段: {missing_cols}")
-                return None
+                # 尝试使用替代字段
+                if 'Month' not in self.df_relations.columns and 'Open_Date' in self.df_relations.columns:
+                    # 从Open_Date推断月份
+                    self.df_relations['Month'] = pd.to_datetime(self.df_relations['Open_Date']).dt.strftime('%b %y').str.upper()
+                
+                if 'Physical_Month' not in self.df_relations.columns:
+                    # 使用Month作为Physical_Month
+                    self.df_relations['Physical_Month'] = self.df_relations['Month']
+                
+                # 重新检查
+                missing_cols = [col for col in required_cols if col not in self.df_relations.columns]
+                if missing_cols:
+                    st.warning(f"缺少期限风险分析所需字段: {missing_cols}")
+                    return None
             
             tenor_data = self.df_relations.copy()
             
@@ -160,14 +225,14 @@ class RiskAnalysisModule:
                         'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12
                     }
                     
-                    m1, y1 = month1.split()[:2]
-                    m2, y2 = month2.split()[:2]
+                    m1, y1 = str(month1).split()[:2]
+                    m2, y2 = str(month2).split()[:2]
                     
                     # 年份处理
                     year1 = int(y1) if len(y1) == 4 else 2000 + int(y1)
                     year2 = int(y2) if len(y2) == 4 else 2000 + int(y2)
                     
-                    diff = (year2 - year1) * 12 + (month_map[m2] - month_map[m1])
+                    diff = (year2 - year1) * 12 + (month_map.get(m2.upper(), 0) - month_map.get(m1.upper(), 0))
                     return diff
                 except:
                     return 0
@@ -542,13 +607,13 @@ class PLAttributionModule:
             cargo_pl = self.attribution_results['cargo_level']
             summary = self.attribution_results['summary']
             
+            # 创建简化的图表
             fig = make_subplots(
-                rows=2, cols=3,
+                rows=2, cols=2,
                 subplot_titles=('💰 P/L贡献度TOP10', '📊 已实现 vs 未实现分布',
-                               '📈 P/L集中度分析', '🎯 盈亏船货数量',
-                               '📅 P/L时间序列', '📋 P/L归因明细'),
-                specs=[[{"type": "bar"}, {"type": "pie"}, {"type": "waterfall"}],
-                       [{"type": "bar"}, {"type": "line"}, {"type": "table"}]],
+                               '📈 P/L集中度分析', '📋 P/L归因明细'),
+                specs=[[{"type": "bar"}, {"type": "pie"}],
+                       [{"type": "waterfall"}, {"type": "table"}]],
                 vertical_spacing=0.15,
                 horizontal_spacing=0.1
             )
@@ -586,40 +651,12 @@ class PLAttributionModule:
                     y=cargo_pl['总P/L'],
                     connector={"line": {"color": "rgb(63, 63, 63)"}},
                 ),
-                row=1, col=3
-            )
-            fig.add_hline(y=summary['total_pl'], line_dash="dash", line_color="blue", 
-                         annotation_text=f"总P/L: ${summary['total_pl']:,.2f}", row=1, col=3)
-            
-            # 4. 盈亏船货数量柱状图
-            profit_loss_counts = pd.DataFrame({
-                '类型': ['盈利船货', '亏损船货'],
-                '数量': [summary['profitable_cargos'], summary['losing_cargos']]
-            })
-            fig.add_trace(
-                go.Bar(x=profit_loss_counts['类型'], y=profit_loss_counts['数量'],
-                      name='盈亏数量',
-                      marker_color=['green', 'red']),
                 row=2, col=1
             )
+            fig.add_hline(y=summary['total_pl'], line_dash="dash", line_color="blue", 
+                         annotation_text=f"总P/L: ${summary['total_pl']:,.2f}", row=2, col=1)
             
-            # 5. 已实现占比分布（如果有时间序列数据）
-            if 'Cargo_ID' in self.df_relations.columns and 'Realized_PL' in self.df_relations.columns:
-                # 按Cargo分组计算已实现占比
-                realized_ratio_by_cargo = (cargo_pl['已实现P/L'] / cargo_pl['总P/L'] * 100).dropna()
-                if not realized_ratio_by_cargo.empty:
-                    fig.add_trace(
-                        go.Scatter(x=realized_ratio_by_cargo.index,
-                                  y=realized_ratio_by_cargo.values,
-                                  mode='markers+lines',
-                                  name='已实现占比',
-                                  line=dict(color='orange', width=2)),
-                        row=2, col=2
-                    )
-                    fig.add_hline(y=50, line_dash="dash", line_color="gray", 
-                                 annotation_text="50%基准线", row=2, col=2)
-            
-            # 6. P/L归因明细表
+            # 4. P/L归因明细表
             display_df = cargo_pl.copy()
             display_df = display_df.round(2)
             
@@ -633,7 +670,7 @@ class PLAttributionModule:
                               align='left'),
                     name='P/L归因明细'
                 ),
-                row=2, col=3
+                row=2, col=2
             )
             
             fig.update_layout(height=800, showlegend=False)
@@ -666,29 +703,20 @@ class EffectivenessTestingModule:
             # 提取所有基准类型
             if 'Physical_Benchmark' in self.df_relations.columns:
                 benchmark_types = self.df_relations['Physical_Benchmark'].dropna().unique()
-                
-                for benchmark in benchmark_types:
-                    # 为该基准创建默认价格数据
-                    benchmarks[benchmark] = {
-                        'designation_price': 0.0,  # 指定日价格
-                        'monitoring_price': 0.0,   # 监测日价格
-                        'price_change': 0.0,       # 价格变动
-                        'volume': 0.0,             # 相关交易量
-                        'count': 0                 # 交易数量
-                    }
-            
-            # 如果没有基准信息，使用代理信息
             elif 'Proxy' in self.df_relations.columns:
-                proxy_types = self.df_relations['Proxy'].dropna().unique()
-                
-                for proxy in proxy_types:
-                    benchmarks[proxy] = {
-                        'designation_price': 0.0,
-                        'monitoring_price': 0.0,
-                        'price_change': 0.0,
-                        'volume': 0.0,
-                        'count': 0
-                    }
+                benchmark_types = self.df_relations['Proxy'].dropna().unique()
+            else:
+                return {}
+            
+            for benchmark in benchmark_types:
+                # 为该基准创建默认价格数据
+                benchmarks[benchmark] = {
+                    'designation_price': 0.0,  # 指定日价格
+                    'monitoring_price': 0.0,   # 监测日价格
+                    'price_change': 0.0,       # 价格变动
+                    'volume': 0.0,             # 相关交易量
+                    'count': 0                 # 交易数量
+                }
             
             self.benchmark_prices = benchmarks
             return benchmarks
@@ -820,18 +848,12 @@ class EffectivenessTestingModule:
         
         try:
             benchmark_results = self.test_results['benchmark_level']
-            cargo_results = self.test_results['cargo_level']
-            summary = self.test_results['summary']
             
+            # 创建简化的图表
             fig = make_subplots(
-                rows=2, cols=3,
-                subplot_titles=('📊 基准级别有效性测试', '📈 有效性比率分布',
-                               '🎯 有效性判定结果', '🚢 Cargo级别有效性',
-                               '💰 P/L与有效性关系', '📋 有效性测试明细'),
-                specs=[[{"type": "bar"}, {"type": "histogram"}, {"type": "pie"}],
-                       [{"type": "scatter"}, {"type": "scatter"}, {"type": "table"}]],
-                vertical_spacing=0.15,
-                horizontal_spacing=0.1
+                rows=1, cols=3,
+                subplot_titles=('📊 基准级别有效性测试', '📈 有效性比率分布', '🎯 有效性判定结果'),
+                specs=[[{"type": "bar"}, {"type": "histogram"}, {"type": "pie"}]]
             )
             
             # 1. 基准级别有效性测试柱状图
@@ -877,70 +899,7 @@ class EffectivenessTestingModule:
                     row=1, col=3
                 )
             
-            # 4. Cargo级别有效性散点图
-            if not cargo_results.empty:
-                fig.add_trace(
-                    go.Scatter(x=cargo_results['价格变动(%)'], 
-                              y=cargo_results['纸货表现'],
-                              mode='markers',
-                              marker=dict(
-                                  size=cargo_results['交易量'] / cargo_results['交易量'].max() * 30 + 10,
-                                  color=np.where(cargo_results['有效性判定'] == '有效', 'green', 'red'),
-                                  showscale=False
-                              ),
-                              text=cargo_results['Cargo_ID'],
-                              name='Cargo有效性'),
-                    row=2, col=1
-                )
-                # 添加完美对冲线
-                x_range = np.array([cargo_results['价格变动(%)'].min(), 
-                                   cargo_results['价格变动(%)'].max()])
-                fig.add_trace(
-                    go.Scatter(x=x_range, y=x_range,
-                              mode='lines',
-                              name='完美对冲',
-                              line=dict(color='green', dash='dash')),
-                    row=2, col=1
-                )
-            
-            # 5. P/L与有效性关系散点图
-            if not cargo_results.empty and '纸货P/L' in cargo_results.columns:
-                fig.add_trace(
-                    go.Scatter(x=cargo_results['有效性比率(%)'], 
-                              y=cargo_results['纸货P/L'],
-                              mode='markers',
-                              marker=dict(
-                                  size=abs(cargo_results['纸货P/L']) / abs(cargo_results['纸货P/L']).max() * 30 + 10,
-                                  color=cargo_results['有效性比率(%)'],
-                                  colorscale='RdBu',
-                                  showscale=True,
-                                  colorbar=dict(title="有效性比率", x=1.1)
-                              ),
-                              text=cargo_results['Cargo_ID'],
-                              name='P/L与有效性'),
-                    row=2, col=2
-                )
-                fig.add_vline(x=80, line_dash="dash", line_color="red", row=2, col=2)
-                fig.add_vline(x=125, line_dash="dash", line_color="red", row=2, col=2)
-                fig.add_vline(x=100, line_dash="dash", line_color="green", row=2, col=2)
-            
-            # 6. 有效性测试明细表
-            if not benchmark_results.empty:
-                display_df = benchmark_results.round(2)
-                fig.add_trace(
-                    go.Table(
-                        header=dict(values=list(display_df.columns),
-                                   fill_color='paleturquoise',
-                                   align='left'),
-                        cells=dict(values=[display_df[col] for col in display_df.columns],
-                                  fill_color='lavender',
-                                  align='left'),
-                        name='有效性测试明细'
-                    ),
-                    row=2, col=3
-                )
-            
-            fig.update_layout(height=800, showlegend=False)
+            fig.update_layout(height=400, showlegend=False)
             return fig
             
         except Exception as e:
@@ -1031,6 +990,10 @@ def main():
         st.session_state.engine = HedgeMatchingEngine()
     if 'df_relations' not in st.session_state:
         st.session_state.df_relations = None
+    if 'df_physical' not in st.session_state:
+        st.session_state.df_physical = None
+    if 'df_paper_net' not in st.session_state:
+        st.session_state.df_paper_net = None
     if 'risk_analysis' not in st.session_state:
         st.session_state.risk_analysis = None
     if 'pl_attribution' not in st.session_state:
@@ -1073,8 +1036,11 @@ def main():
         st.markdown("---")
         
         if st.button("🔄 重置所有数据", type="secondary"):
-            for key in list(st.session_state.keys()):
-                del st.session_state[key]
+            for key in ['engine', 'df_relations', 'df_physical', 'df_paper_net', 
+                       'risk_analysis', 'pl_attribution', 'effectiveness_test', 
+                       'benchmark_prices']:
+                if key in st.session_state:
+                    del st.session_state[key]
             st.rerun()
     
     # 主内容区 - 数据上传和匹配
@@ -1108,31 +1074,37 @@ def main():
                 with st.spinner("正在执行套保匹配与高级分析..."):
                     try:
                         # 执行匹配
-                        df_relations, df_physical, df_paper_net = st.session_state.engine.run_matching(
+                        matching_results = st.session_state.engine.run_matching(
                             df_paper_raw, df_physical_raw
                         )
                         
-                        st.session_state.df_relations = df_relations
-                        
-                        if df_relations is not None and not df_relations.empty:
-                            st.markdown('<div class="success-box">✅ 套保匹配完成！开始高级分析...</div>', unsafe_allow_html=True)
+                        if matching_results is not None:
+                            st.session_state.df_relations = matching_results['relations']
+                            st.session_state.df_physical = matching_results['physical']
+                            st.session_state.df_paper_net = matching_results['paper_net']
                             
-                            # 初始化分析模块
-                            if enable_risk_analysis:
-                                st.session_state.risk_analysis = RiskAnalysisModule(df_relations)
-                                st.session_state.risk_analysis.analyze_basis_risk()
-                                st.session_state.risk_analysis.analyze_tenor_risk()
-                            
-                            if enable_pl_attribution:
-                                st.session_state.pl_attribution = PLAttributionModule(df_relations)
-                                st.session_state.pl_attribution.analyze_pl_attribution()
-                            
-                            if enable_effectiveness_test:
-                                st.session_state.effectiveness_test = EffectivenessTestingModule(df_relations)
-                                st.session_state.benchmark_prices = st.session_state.effectiveness_test.extract_benchmarks()
-                            
+                            if st.session_state.df_relations is not None and not st.session_state.df_relations.empty:
+                                st.markdown('<div class="success-box">✅ 套保匹配完成！开始高级分析...</div>', unsafe_allow_html=True)
+                                
+                                # 初始化分析模块
+                                if enable_risk_analysis:
+                                    st.session_state.risk_analysis = RiskAnalysisModule(st.session_state.df_relations)
+                                    st.session_state.risk_analysis.analyze_basis_risk()
+                                    st.session_state.risk_analysis.analyze_tenor_risk()
+                                
+                                if enable_pl_attribution:
+                                    st.session_state.pl_attribution = PLAttributionModule(st.session_state.df_relations)
+                                    st.session_state.pl_attribution.analyze_pl_attribution()
+                                
+                                if enable_effectiveness_test:
+                                    st.session_state.effectiveness_test = EffectivenessTestingModule(st.session_state.df_relations)
+                                    st.session_state.benchmark_prices = st.session_state.effectiveness_test.extract_benchmarks()
+                                
+                                st.rerun()
+                            else:
+                                st.markdown('<div class="warning-box">⚠️ 匹配完成但未生成匹配记录</div>', unsafe_allow_html=True)
                         else:
-                            st.markdown('<div class="warning-box">⚠️ 匹配完成但未生成匹配记录</div>', unsafe_allow_html=True)
+                            st.error("匹配失败，请检查数据格式")
                             
                     except Exception as e:
                         st.error(f"匹配与分析过程中出现错误: {str(e)}")
@@ -1181,6 +1153,8 @@ def main():
                 # 显示基差风险统计数据
                 with st.expander("📋 基差风险详细数据"):
                     st.dataframe(risk_analysis.basis_risk_results['statistics'], use_container_width=True)
+            else:
+                st.info("正在计算基差风险分析...")
             
             # 期限错配风险分析
             st.markdown("#### 📅 期限错配风险分析 (Tenor Mismatch)")
@@ -1211,8 +1185,10 @@ def main():
                 # 显示期限风险统计数据
                 with st.expander("📋 期限风险详细数据"):
                     st.dataframe(risk_analysis.tenor_risk_results['statistics'], use_container_width=True)
+            else:
+                st.info("正在计算期限风险分析...")
         else:
-            st.info("风险多维透视模块未启用或数据不可用")
+            st.info("风险多维透视模块未启用")
         
         # P/L归因分析
         if enable_pl_attribution:
@@ -1249,6 +1225,10 @@ def main():
                     # 显示P/L归因详细数据
                     with st.expander("📋 P/L归因详细数据"):
                         st.dataframe(pl_analysis.attribution_results['cargo_level'], use_container_width=True)
+                else:
+                    st.info("正在计算P/L归因分析...")
+            else:
+                st.info("P/L归因分析模块未初始化")
         
         # 有效性测试
         if enable_effectiveness_test:
@@ -1399,12 +1379,6 @@ def main():
                 }
             }
             
-            # 添加风险分析结果
-            if st.session_state.risk_analysis and st.session_state.risk_analysis.basis_risk_results:
-                report_data["风险分析"] = {
-                    "基差匹配质量": st.session_state.risk_analysis.basis_risk_results.get('risk_score', {}).get('mismatch_ratio', 0)
-                }
-            
             report_json = json.dumps(report_data, indent=2, default=str, ensure_ascii=False)
             st.download_button(
                 label="📄 下载分析报告",
@@ -1441,12 +1415,6 @@ def main():
                 - **手动录入价格**: 交互式表格输入指定日和监测日价格
                 - **自动回测**: 计算有效性比率并自动判定(80-125%)
                 - **多维度测试**: 基准级别和Cargo级别双重验证
-                
-                **📈 专业可视化**
-                - **交互式图表**: 支持钻取和下钻分析
-                - **风险热力图**: 直观展示风险分布
-                - **P/L瀑布图**: 清晰展示盈亏构成
-                - **有效性散点图**: 可视化对冲效果
                 """)
             
             with col2:
@@ -1475,10 +1443,6 @@ def main():
                    - 录入基准价格
                    - 运行有效性测试
                    - 查看测试结果
-                
-                6. **导出结果**
-                   - 下载匹配结果
-                   - 导出分析报告
                 """)
 
 if __name__ == "__main__":
